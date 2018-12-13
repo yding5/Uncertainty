@@ -1,0 +1,15 @@
+*.s
+*.o*
+*.npy
+save_*
+__p*__
+best
+data
+test
+test*
+backup
+pretrained_models
+D_*
+W_*
+R_*
+V_*
