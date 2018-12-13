@@ -599,11 +599,11 @@ def resnet110():
 def resnet1202():
     return ResNet(BasicBlock, [200, 200, 200])
 
-def densenet():
-    return DenseNet3(100, 10)
+def densenet(num_classes=10):
+    return DenseNet3(100, num_classes)
 
-def densenet_bce():
-    return DenseNet3(100, 10)
+def densenet_bce(num_classes=10):
+    return DenseNet3(100, num_classes)
 
 
 

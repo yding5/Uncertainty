@@ -60,8 +60,6 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                     help='use pre-trained model')
-parser.add_argument('--half', dest='half', action='store_true',
-                    help='use half-precision(16-bit) ')
 parser.add_argument('--save-dir', dest='save_dir',
                     help='The directory used to save the trained models',
                     default='save_temp', type=str)
@@ -80,7 +78,17 @@ def main():
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
-    model = torch.nn.DataParallel(models.__dict__[args.arch]())
+
+
+    #Some hard-code setting for fast experiments
+    if args.dataset == 'cifar10':
+        num_classes = 10
+    elif args.dataset == 'cifar100':
+        num_classes = 100
+    else:
+        print("undefined num_classes")
+
+    model = torch.nn.DataParallel(models.__dict__[args.arch](num_classes))
     model.cuda()
 
     # optionally resume from a checkpoint
@@ -103,20 +111,16 @@ def main():
     # define loss function (criterion) and optimizer
     criterionList = get_criterion_list(args.arch)
 
-    if args.half:
-        model.half()
-        criterion.half()
 
 
 
-    validate_and_save(val_loader, model, criterionList, args, save=True)
+    validate_and_save(val_loader, model, criterionList, args, num_classes)
 
 
-def validate_and_save(val_loader, model, criterionList, args, save):
+def validate_and_save(val_loader, model, criterionList, args, num_classes):
     """
     Run evaluation
     """
-
 
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -160,8 +164,6 @@ def validate_and_save(val_loader, model, criterionList, args, save):
         input_var = torch.autograd.Variable(input, volatile=True).cuda()
         target_var = torch.autograd.Variable(target, volatile=True)
 
-        if args.half:
-            input_var = input_var.half()
 
         # compute output
         if args.arch in ['resnet20_20bce_beforeavg','resnet20_20bce','resnet20_decoupled_minus','resnet20_20bce_branch1','resnet20_20bce_branch2']:
@@ -312,39 +314,6 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-
-
-def accuracy2(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
-
-    _, pred = output.topk(maxk, 1, False, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
-
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
-
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
 
 
 if __name__ == '__main__':

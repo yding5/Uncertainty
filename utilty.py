@@ -15,7 +15,7 @@ import numpy as np
 
 
 
-def get_loss_and_accuracy(name, model, input, target):
+def get_loss_and_accuracy(name, model, input, target, num_classes):
     lossList = []
     accuracyList = []
     if name == 'densenet':
@@ -28,7 +28,7 @@ def get_loss_and_accuracy(name, model, input, target):
         lossList.append( criterion(outputList[0], target_var) )
         accuracyList.append( accuracy(outputList[0].data, target) )
     elif name == 'densenet_bce':
-        target2 = torch.ones((target.shape[0],10))
+        target2 = torch.ones((target.shape[0], num_classes))
         for j, val in enumerate(target):
             target2[j][target[j]]=0
 
@@ -37,7 +37,7 @@ def get_loss_and_accuracy(name, model, input, target):
         target_var_2 = torch.autograd.Variable(target2)
         input_var = torch.autograd.Variable(input).cuda()
 
-        criterion = nn.BCEWithLogitsLoss(pos_weight=torch.FloatTensor([0.111 for i in range(10)])).cuda()
+        criterion = nn.BCEWithLogitsLoss(pos_weight=torch.FloatTensor([0.111 for i in range(num_classes)])).cuda()
         outputList = model(input_var)
         lossList.append( criterion(outputList[0], target_var_2) )
         accuracyList.append( accuracy_bottom(outputList[0].data, target) )

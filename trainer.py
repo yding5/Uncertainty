@@ -61,8 +61,6 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                     help='use pre-trained model')
-parser.add_argument('--half', dest='half', action='store_true',
-                    help='use half-precision(16-bit) ')
 parser.add_argument('--save-dir', dest='save_dir',
                     help='The directory used to save the trained models',
                     default='save_temp', type=str)
@@ -80,8 +78,26 @@ def main():
     # Check the save_dir exists or not
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
+    #Some hard-code setting for fast experiments
+    if args.dataset == 'cifar10':
+        num_classes = 10
+    elif args.dataset == 'cifar100':
+        num_classes = 100
+    else:
+        print("undefined num_classes")
 
-    model = torch.nn.DataParallel(models.__dict__[args.arch]())
+    if args.arch.startswith('densenet'):
+        args.epochs = 300
+        args.batch_size = 64
+    elif args.arch.startswith('resnet'):
+        args.epochs = 200
+        args.batch_size = 128
+    else:
+        print("undefined epochs")
+
+
+
+    model = torch.nn.DataParallel(models.__dict__[args.arch](num_classes))
     model.cuda()
 
     # optionally resume from a checkpoint
@@ -104,16 +120,13 @@ def main():
     # define loss function (criterion) and optimizer
     criterionList = get_criterion_list(args.arch)
 
-    if args.half:
-        model.half()
-        criterion.half()
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                        milestones=[100, 150], last_epoch=args.start_epoch - 1)
+                                                        milestones=[int(args.epochs/2), int(args.epochs/4*3)], last_epoch=args.start_epoch - 1)
 
 
     if args.evaluate:
@@ -124,11 +137,11 @@ def main():
 
         # train for one epoch
         print('current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
-        train(train_loader, model, criterionList, optimizer, epoch, args)
+        train(train_loader, model, criterionList, optimizer, epoch, args, num_classes)
         lr_scheduler.step()
 
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterionList, args, best_prec1)
+        prec1 = validate(val_loader, model, criterionList, args, best_prec1, num_classes)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -149,7 +162,7 @@ def main():
     }, is_best, filename=os.path.join(args.save_dir, 'final.th'))
 
 
-def train(train_loader, model, criterionList, optimizer, epoch, args):
+def train(train_loader, model, criterionList, optimizer, epoch, args, num_classes):
     """
         Run one train epoch
     """
@@ -166,7 +179,7 @@ def train(train_loader, model, criterionList, optimizer, epoch, args):
     end = time.time()
     for i, (input, target) in enumerate(train_loader):
     
-        lossList, accuracyList = get_loss_and_accuracy(args.arch, model, input, target)
+        lossList, accuracyList = get_loss_and_accuracy(args.arch, model, input, target, num_classes)
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -196,7 +209,7 @@ def train(train_loader, model, criterionList, optimizer, epoch, args):
                       epoch, i, len(train_loader), batch_time=batch_time,
                       data_time=data_time, loss=losses, top1=top1))
 
-def validate(val_loader, model, criterionList, args, best_prec1):
+def validate(val_loader, model, criterionList, args, best_prec1, num_classes):
     """
     Run evaluation
     """
@@ -208,11 +221,9 @@ def validate(val_loader, model, criterionList, args, best_prec1):
     # switch to evaluate mode
     model.eval()
 
-    res = []
-    counter = 0
 
     for i, (input, target) in enumerate(val_loader):
-        lossList, accuracyList = get_loss_and_accuracy(args.arch, model, input, target)
+        lossList, accuracyList = get_loss_and_accuracy(args.arch, model, input, target, num_classes)
 
         loss = lossList[0]
         accuracy = accuracyList[0]
