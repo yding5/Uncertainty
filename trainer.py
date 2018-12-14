@@ -31,6 +31,7 @@ parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
 parser.add_argument('--dataset', default='cifar10', type=str, help='training dataset')
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
+parser.add_argument('--nesterov', default=False, type=bool, help='use of nesterov momentum')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=128, type=int,
@@ -89,6 +90,7 @@ def main():
     if args.arch.startswith('densenet'):
         args.epochs = 300
         args.batch_size = 64
+        args.besterov = True
     elif args.arch.startswith('resnet'):
         args.epochs = 200
         args.batch_size = 128
@@ -123,6 +125,7 @@ def main():
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
+                                nesterov=args.nesterov,
                                 weight_decay=args.weight_decay)
 
     lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
@@ -179,7 +182,7 @@ def train(train_loader, model, criterionList, optimizer, epoch, args, num_classe
     end = time.time()
     for i, (input, target) in enumerate(train_loader):
     
-        lossList, accuracyList = get_loss_and_accuracy(args.arch, model, input, target, num_classes)
+        lossList, accuracyList, _ = get_loss_and_accuracy(args.arch, model, input, target, num_classes)
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -223,7 +226,7 @@ def validate(val_loader, model, criterionList, args, best_prec1, num_classes):
 
 
     for i, (input, target) in enumerate(val_loader):
-        lossList, accuracyList = get_loss_and_accuracy(args.arch, model, input, target, num_classes)
+        lossList, accuracyList, _ = get_loss_and_accuracy(args.arch, model, input, target, num_classes)
 
         loss = lossList[0]
         accuracy = accuracyList[0]

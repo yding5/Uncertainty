@@ -48,7 +48,7 @@ def get_loss_and_accuracy(name, model, input, target, num_classes):
         print("undefined loss and accuracy for {}!".format(name))
         return -1
 
-    return lossList, accuracyList
+    return lossList, accuracyList, outputList
 
     #criterionCE = nn.CrossEntropyLoss().cuda()
     #criterionBCE = nn.BCEWithLogitsLoss(pos_weight=torch.FloatTensor([0.111 for i in range(10)])).cuda()

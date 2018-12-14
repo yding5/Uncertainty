@@ -14,6 +14,7 @@ import models
 import numpy as np
 from dataloader import get_data_loader
 from criterion import get_criterion_list
+from utilty import get_loss_and_accuracy
 
 
 model_names = sorted(name for name in models.__dict__
@@ -136,161 +137,48 @@ def validate_and_save(val_loader, model, criterionList, args, num_classes):
 
     end = time.time()
     for i, (input, target) in enumerate(val_loader):
-        target2 = torch.ones((target.shape[0],10))
-        target5 = -1*torch.ones((target.shape[0],10))
-        target6 = torch.zeros((target.shape[0],10))
-        target5 = -1*torch.ones((target.shape[0],10))
-        for j, val in enumerate(target):
-            target2[j][target[j]]=0
-            target5[j][target[j]]=1
-            target6[j][target[j]]=1
-
-
-        target = target.cuda(async=True)
-        target2 = target2.cuda(async=True)
-        target5 = target5.cuda(async=True)
-        target6 = target6.cuda(async=True)
-        target5 = target5.cuda(async=True)
-        target_var_2 = torch.autograd.Variable(target2)
-        target_var_5 = torch.autograd.Variable(target5)
-        target_var_6 = torch.autograd.Variable(target6)
-
-
-        if save:
-            targetList = target.tolist()
-            for t in targetList:
-                res.append([t,])
-
-        input_var = torch.autograd.Variable(input, volatile=True).cuda()
-        target_var = torch.autograd.Variable(target, volatile=True)
-
-
-        # compute output
-        if args.arch in ['resnet20_20bce_beforeavg','resnet20_20bce','resnet20_decoupled_minus','resnet20_20bce_branch1','resnet20_20bce_branch2']:
-            output1, output2 = model(input_var)
-            if save:
-                output1List = output1.tolist()
-                output2List = output2.tolist()
-                for out1,out2 in zip(output1List, output2List):
-                    res[counter].extend(out1)
-                    res[counter].extend(out2)
-                    counter = counter + 1
-
-        elif args.arch in ['resnet20_20bce_joint','resnet20_20bce_beforeavg_weightedsoft','resnet20_20bce_beforeavg_weightedsoft2','resnet20_20bce_jointforpred','resnet20_decoupled_weightedsoft2']:
-            output1, output2, output3 = model(input_var)
-            if save:
-                output1List = output1.tolist()
-                output2List = output2.tolist()
-                output3List = output3.tolist()
-                for out1,out2,out3 in zip(output1List, output2List, output3List):
-                    res[counter].extend(out1)
-                    res[counter].extend(out2)
-                    res[counter].extend(out3)
-                    counter = counter + 1
-        elif args.arch in ['resnet20_bce','resnet20_bce_neg']:
-            output2 = model(input_var)
-            if save:
-                output2List = output2.tolist()
-                for out2 in output2List:
-                    res[counter].extend(out2)
-                    counter = counter + 1
-        else:
-            output1 = model(input_var)
-            if save:
-                output1List = output1.tolist()
-                for out1 in output1List:
-                    res[counter].extend(out1)
-                    counter = counter + 1
-        #loss1
-        if args.arch in ['resnet20_bce']:
-            loss1 = criterionList[1](output2, target_var_2)
-        elif args.arch in ['resnet20_bce_neg']:
-            loss1 = criterionList[6](output2, target_var_6)
-        else:
-            loss1 = criterionList[0](output1, target_var)
 
 
 
-        # measure accuracy and record loss
-        if args.arch not in ['resnet20_20bce_jointforpred','resnet20_decoupled_minus','resnet20_20bce_branch1','resnet20_20bce_branch2','resnet20_20bce','resnet44','resnet38','resnet20_bce_neg']:
-            output3 = output3.float()
-            loss1 = loss1.float()
-            losses.update(loss1.data[0], input.size(0))
-            prec1 = accuracy(output3.data, target)[0]
-            top1.update(prec1[0], input.size(0))
-            prec2 = accuracy2(output2.data, target)[0]
-            top1FromNot.update(prec2[0], input.size(0))
-        if args.arch in ['resnet20_decoupled_weightedsoft2']:
-            prec2 = accuracy2(output2.data, target)[0]
-            top1FromNot.update(prec2[0], input.size(0))
-            output3 = output3.float()
-            prec3 = accuracy(output3.data, target)[0]
-            top1Comb.update(prec3[0], input.size(0))
-        if args.arch not in ['resnet20_bce','resnet20_bce_neg']:
-            output1 = output1.float()
-            loss1 = loss1.float()
-            losses.update(loss1.data[0], input.size(0))
-            prec1 = accuracy(output1.data, target)[0]
-            top1.update(prec1[0], input.size(0))
-        if args.arch in ['resnet20_bce_neg']:
-            output2 = output2.float()
-            loss1 = loss1.float()
-            losses.update(loss1.data[0], input.size(0))
-            prec2 = accuracy(output2.data, target)[0]
-            top1.update(prec2[0], input.size(0))
-        
-        if args.arch in ['resnet20_20bce_beforeavg','resnet20_20bce','resnet20_20bce_joint','resnet20_20bce_beforeavg_weightedsoft','resnet20_bce','resnet20_20bce_beforeavg_weightedsoft2','resnet20_decoupled_minus','resnet20_20bce_branch1','resnet20_20bce_branch2']:
-            prec2 = accuracy2(output2.data, target)[0]
-            top1FromNot.update(prec2[0], input.size(0))
+        lossList, accuracyList, outputList = get_loss_and_accuracy(args.arch, model, input, target, num_classes)
 
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+        loss = lossList[0]
+        accuracy = accuracyList[0]
 
-        if args.arch in ['resnet20_20bce_beforeavg','resnet20_20bce','resnet20_20bce_joint','resnet20_20bce_beforeavg_weightedsoft','resnet20_20bce_beforeavg_weightedsoft2','resnet20_20bce_jointforpred','resnet20_decoupled_minus','resnet20_20bce_branch1','resnet20_20bce_branch2','resnet20_bce_neg']:
-            if i % args.print_freq == 0:
-                print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1FroNot {top1FromNot.val:.4f} ({top1FromNot.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                      i, len(val_loader), batch_time=batch_time, loss=losses, top1FromNot=top1FromNot,
-                      top1=top1))
-        elif args.arch in ['resnet20_bce']:
-            if i % args.print_freq == 0:
-                print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1FroNot {top1FromNot.val:.4f} ({top1FromNot.avg:.4f})'.format(
-                      i, len(val_loader), batch_time=batch_time, loss=losses, top1FromNot=top1FromNot))
-        elif args.arch in ['resnet20_decoupled_weightedsoft2']:
-            if i % args.print_freq == 0:
-                print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1FroNot {top1FromNot.val:.4f} ({top1FromNot.avg:.4f})\t'
-                  'Prec@1Comb {top1Comb.val:.4f} ({top1Comb.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                      i, len(val_loader), batch_time=batch_time, loss=losses, top1FromNot=top1FromNot,top1Comb=top1Comb,top1=top1))
-        else:
-            if i % args.print_freq == 0:
-                print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+        loss = loss.float()
+        losses.update(loss.data[0], input.size(0))
+        top1.update(accuracy[0], input.size(0))
+
+        targetList = target.tolist()
+        concatenated = torch.cat(outputList, dim=1).tolist()
+        #print(len(concatenated))
+        #print(len(concatenated[0]))
+        for t, o in zip(targetList, concatenated):
+            #print(o)
+            #print(len(o))
+            tempList = [t,]
+            tempList.extend(o)
+            res.append(tempList)
+
+        if i % args.print_freq == 0:
+           print('Test: [{0}/{1}]\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                      i, len(val_loader), batch_time=batch_time, loss=losses,
+                      i, len(val_loader), loss=losses,
                       top1=top1))
 
+
+    npres = np.asarray(res)
+    np.save(args.arch+'_'+str(args.dataset)+'.npy', npres)
 
     print(' * Prec@1 {top1.avg:.3f}'
           .format(top1=top1))
 
-    npres = np.asarray(res)
-    np.save(args.arch+str(args.weightForNot)+str(args.weightForSoft)+str(args.weightForWeightedSoft)+'res.npy', npres)
-
-
 
     return top1.avg
+
+
+
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     """
