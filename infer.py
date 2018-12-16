@@ -28,7 +28,8 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet32',
                     ' (default: resnet32)')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--dataset', default='cifar10', type=str, help='training dataset')
+parser.add_argument('--train_dataset', default='cifar10', type=str, help='training dataset')
+parser.add_argument('--infer_dataset', default='cifar10', type=str, help='training dataset')
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
@@ -53,7 +54,7 @@ parser.add_argument('--weightForJointPred', default=2.0, type=float,
                     metavar='W', help='weight for confidence estimation in total loss')
 parser.add_argument('--weightForMinus', default=0.4, type=float,
                     metavar='W', help='weight for confidence estimation in total loss')
-parser.add_argument('--print-freq', '-p', default=50, type=int,
+parser.add_argument('--print-freq', '-p', default=1000, type=int,
                     metavar='N', help='print frequency (default: 20)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
@@ -80,11 +81,10 @@ def main():
         os.makedirs(args.save_dir)
 
 
-
     #Some hard-code setting for fast experiments
-    if args.dataset == 'cifar10':
+    if args.train_dataset == 'cifar10':
         num_classes = 10
-    elif args.dataset == 'cifar100':
+    elif args.train_dataset == 'cifar100':
         num_classes = 100
     else:
         print("undefined num_classes")
@@ -108,7 +108,7 @@ def main():
     cudnn.benchmark = True
 
     #Get data
-    train_loader, val_loader = get_data_loader(args.dataset)
+    train_loader, val_loader = get_data_loader(args.infer_dataset)
     # define loss function (criterion) and optimizer
     criterionList = get_criterion_list(args.arch)
 
@@ -169,7 +169,7 @@ def validate_and_save(val_loader, model, criterionList, args, num_classes):
 
 
     npres = np.asarray(res)
-    np.save(args.arch+'_'+str(args.dataset)+'.npy', npres)
+    np.save(args.arch+'_'+str(args.infer_dataset)+'.npy', npres)
 
     print(' * Prec@1 {top1.avg:.3f}'
           .format(top1=top1))

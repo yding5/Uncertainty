@@ -7,18 +7,57 @@ import torch.nn as nn
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
+import torch.optim.lr_scheduler
 import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import models
 import numpy as np
 
+class customizedLR(torch.optim.lr_scheduler._LRScheduler):
+    """Set the learning rate of each parameter group to the initial lr decayed
+    by gamma once the number of epoch reaches one of the milestones. When
+    last_epoch=-1, sets initial lr as lr.
+
+    Args:
+        optimizer (Optimizer): Wrapped optimizer.
+        milestones (list): List of epoch indices. Must be increasing.
+        gamma (float): Multiplicative factor of learning rate decay.
+            Default: 0.1.
+        last_epoch (int): The index of last epoch. Default: -1.
+
+    """
+
+    def __init__(self, optimizer, last_epoch=-1):
+        super(customizedLR, self).__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        if self.last_epoch <= 14:
+            return [base_lr * (1+ self.last_epoch/14*9)
+                for base_lr in self.base_lrs]
+        elif self.last_epoch <= 28:
+            return [base_lr * (10 - (self.last_epoch-14)/14*9)
+                for base_lr in self.base_lrs]
+        else:
+            return [base_lr * (1- (self.last_epoch-28)/16*0.999)
+                for base_lr in self.base_lrs]
+
+def get_lr_scheduler(optimizer, args):
+    if args.arch.startswith('vgg'):
+        lr_scheduler = customizedLR(optimizer,last_epoch=args.start_epoch - 1)
+    else:
+        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+                                                        milestones=[int(args.epochs/2), int(args.epochs/4*3)], last_epoch=args.start_epoch - 1) 
+        #lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+    return lr_scheduler 
+
+    
 
 
 def get_loss_and_accuracy(name, model, input, target, num_classes):
     lossList = []
     accuracyList = []
-    if name == 'densenet':
+    if name in ['densenet','vgg16','vgg16_bn','wideresnet']:
         target = target.cuda(async=True)
         target_var = torch.autograd.Variable(target)
         input_var = torch.autograd.Variable(input).cuda()
@@ -27,7 +66,7 @@ def get_loss_and_accuracy(name, model, input, target, num_classes):
         outputList = model(input_var)
         lossList.append( criterion(outputList[0], target_var) )
         accuracyList.append( accuracy(outputList[0].data, target) )
-    elif name == 'densenet_bce':
+    elif name in ['densenet_bce','vgg16_bce','vgg16_bn_bce','wideresnet_bce']:
         target2 = torch.ones((target.shape[0], num_classes))
         for j, val in enumerate(target):
             target2[j][target[j]]=0

@@ -15,6 +15,7 @@ import numpy as np
 from dataloader import get_data_loader
 from criterion import get_criterion_list
 from utilty import get_loss_and_accuracy
+from utilty import get_lr_scheduler
 
 
 model_names = sorted(name for name in models.__dict__
@@ -80,7 +81,7 @@ def main():
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
     #Some hard-code setting for fast experiments
-    if args.dataset == 'cifar10':
+    if args.dataset in ['cifar10','cifar10_extra']:
         num_classes = 10
     elif args.dataset == 'cifar100':
         num_classes = 100
@@ -89,11 +90,28 @@ def main():
 
     if args.arch.startswith('densenet'):
         args.epochs = 300
+        print('set epochs as 300 automatically')
         args.batch_size = 64
-        args.besterov = True
+        print('set batch size as 64 automatically')
+        args.nesterov = True
+        print('set nesterov as True automatically')
     elif args.arch.startswith('resnet'):
         args.epochs = 200
+        print('set epochs as 200 automatically')
         args.batch_size = 128
+        print('set batch size as 128 automatically')
+    elif args.arch.startswith('wideresnet'):
+        args.epochs = 200
+        print('set epochs as 200 automatically')
+        args.batch_size = 128
+        print('set batch size as 128 automatically')
+    elif args.arch.startswith('vgg'):
+        args.epochs = 45
+        print('set epochs as 45 automatically')
+        args.batch_size = 128
+        print('set batch size as 128 automatically')
+        args.lr = 0.001
+        print('set lr as 1e-3 automatically')
     else:
         print("undefined epochs")
 
@@ -122,14 +140,16 @@ def main():
     # define loss function (criterion) and optimizer
     criterionList = get_criterion_list(args.arch)
 
-
+    ####################################################
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 nesterov=args.nesterov,
                                 weight_decay=args.weight_decay)
 
-    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                        milestones=[int(args.epochs/2), int(args.epochs/4*3)], last_epoch=args.start_epoch - 1)
+    lr_scheduler = get_lr_scheduler(optimizer,args)
+    #if args.arch.startswith('vgg'):
+    #lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+     #                                                   milestones=[int(args.epochs/2), int(args.epochs/4*3)], last_epoch=args.start_epoch - 1)
 
 
     if args.evaluate:

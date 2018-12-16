@@ -35,6 +35,10 @@ import torch.nn.init as init
 from torch.autograd import Variable
 
 from densenet import DenseNet3
+from vgg import vgg16_bn as cifar10_vgg16_bn
+from vgg import vgg16 as cifar10_vgg16
+from wideresnet import WideResNet
+
 
 __all__ = ['ResNet', 'resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110', 'resnet1202']
 
@@ -606,6 +610,24 @@ def densenet_bce(num_classes=10):
     return DenseNet3(100, num_classes)
 
 
+def vgg16(num_classes=10):
+    return cifar10_vgg16()#only num_classes=10 is implemented
+
+def vgg16_bn(num_classes=10):
+    return cifar10_vgg16_bn()#only num_classes=10 is implemented
+
+def vgg16_bce(num_classes=10):
+    return cifar10_vgg16()#only num_classes=10 is implemented
+
+def vgg16_bn_bce(num_classes=10):
+    return cifar10_vgg16_bn()#only num_classes=10 is implemented
+
+
+def wideresnet(num_classes=10):
+    return WideResNet(28,num_classes,10)#only num_classes=10 is implemente
+
+def wideresnet_bce(num_classes=10):
+    return WideResNet_bce(28,num_classes,10)#only num_classes=10 is implemente
 
 def test(net):
     import numpy as np
