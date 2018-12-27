@@ -627,7 +627,7 @@ def wideresnet(num_classes=10):
     return WideResNet(28,num_classes,10)#only num_classes=10 is implemente
 
 def wideresnet_bce(num_classes=10):
-    return WideResNet_bce(28,num_classes,10)#only num_classes=10 is implemente
+    return WideResNet(28,num_classes,10)#only num_classes=10 is implemente
 
 def test(net):
     import numpy as np

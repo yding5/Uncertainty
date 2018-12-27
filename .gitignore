@@ -9,6 +9,7 @@ test
 test*
 backup
 pretrained_models
+pretrain*
 D_*
 W_*
 R_*

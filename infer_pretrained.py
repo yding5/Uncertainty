@@ -90,19 +90,21 @@ def main():
     else:
         print("undefined num_classes")
 
-    model = torch.nn.DataParallel(models.__dict__[args.arch](num_classes))
-    model.cuda()
+    #model = torch.nn.DataParallel(models.__dict__[args.arch](num_classes))
+    #model.cuda()
 
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume)
-            args.start_epoch = checkpoint['epoch']
-            best_prec1 = checkpoint['best_prec1']
-            model.load_state_dict(checkpoint['state_dict'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.evaluate, checkpoint['epoch']))
+            #checkpoint = torch.load(args.resume)
+            #args.start_epoch = checkpoint['epoch']
+            #best_prec1 = checkpoint['best_prec1']
+            #model.load_state_dict(checkpoint['state_dict'])
+            model = torch.load(args.resume)
+            model = model.cuda()
+            #print("=> loaded checkpoint '{}' (epoch {})"
+                  #.format(args.evaluate, checkpoint['epoch']))
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 

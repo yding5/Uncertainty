@@ -33,6 +33,7 @@ parser.add_argument('--dataset', default='cifar10', type=str, help='training dat
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--nesterov', default=False, type=bool, help='use of nesterov momentum')
+parser.add_argument('--optimizer', default='SGD', type=str, help='use of optimizer from SGD and ADAM')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('-b', '--batch-size', default=128, type=int,
@@ -141,10 +142,13 @@ def main():
     criterionList = get_criterion_list(args.arch)
 
     ####################################################
-    optimizer = torch.optim.SGD(model.parameters(), args.lr,
+    if args.optimizer == 'SGD':
+        optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 nesterov=args.nesterov,
                                 weight_decay=args.weight_decay)
+    else:
+        optimizer = torch.optim.Adam(model.parameters(), args.lr)
 
     lr_scheduler = get_lr_scheduler(optimizer,args)
     #if args.arch.startswith('vgg'):
