@@ -126,3 +126,80 @@ class DenseNet3(nn.Module):
         out = F.avg_pool2d(out, 8)
         out = out.view(-1, self.in_planes)
         return [self.fc(out),]#change to list
+
+class DenseNet3_partialsharing1(nn.Module):
+    def __init__(self, depth, num_classes, growth_rate=12,
+                 reduction=0.5, bottleneck=True, dropRate=0.0):
+        super(DenseNet3_partialsharing1, self).__init__()
+        in_planes = 2 * growth_rate
+        n = (depth - 4) / 3
+        if bottleneck == True:
+            n = n/2
+            block = BottleneckBlock
+        else:
+            block = BasicBlock
+
+        n = int(n)#make sure is int
+        self.num_classes = num_classes
+
+
+        # 1st conv before any dense block
+        self.conv1 = nn.Conv2d(3, in_planes, kernel_size=3, stride=1,
+                               padding=1, bias=False)
+        # 1st block
+        self.block1 = DenseBlock(n, in_planes, growth_rate, block, dropRate)
+        in_planes = int(in_planes+n*growth_rate)
+        self.trans1 = TransitionBlock(in_planes, int(math.floor(in_planes*reduction)), dropRate=dropRate)
+        in_planes = int(math.floor(in_planes*reduction))
+        # 2nd block
+        self.block2 = DenseBlock(n, in_planes, growth_rate, block, dropRate)
+        in_planes = int(in_planes+n*growth_rate)
+        self.trans2 = TransitionBlock(in_planes, int(math.floor(in_planes*reduction)), dropRate=dropRate)
+        in_planes = int(math.floor(in_planes*reduction))
+
+
+        self.block3List = torch.nn.ModuleList()
+        self.bn1List = torch.nn.ModuleList()
+        self.reluList = torch.nn.ModuleList()
+        self.fcList = torch.nn.ModuleList()
+        growth_rate = int(growth_rate/6)
+        for i in range(num_classes):
+        # 3rd block
+            self.block3List.append(DenseBlock(n, in_planes, growth_rate, block, dropRate))
+        in_planes = int(in_planes+n*growth_rate)
+        for i in range(num_classes):
+        # global average pooling and classifier
+            self.bn1List.append( nn.BatchNorm2d(in_planes) )
+            self.reluList.append( nn.ReLU(inplace=True) )
+            self.fcList.append( nn.Linear(in_planes, 1))
+
+        self.in_planes = in_planes
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                m.bias.data.zero_()
+    def forward(self, x):
+        out = self.conv1(x)
+        out = self.trans1(self.block1(out))
+        out = self.trans2(self.block2(out))
+        outList = []
+        for i in range(self.num_classes):
+           temp = self.block3List[i](out)
+           temp = self.reluList[i](self.bn1List[i](temp))
+           temp = F.avg_pool2d(temp, 8)
+           temp = temp.view(-1, self.in_planes)
+           temp = self.fcList[i](temp)
+           outList.append(temp)
+        out = torch.cat(outList,1)
+        return [out,]
+        #out = self.block3(out)
+        #out = self.relu(self.bn1(out))
+        #out = F.avg_pool2d(out, 8)
+        #out = out.view(-1, self.in_planes)
+        #return [self.fc(out),]#change to list

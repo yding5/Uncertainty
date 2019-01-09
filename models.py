@@ -35,6 +35,7 @@ import torch.nn.init as init
 from torch.autograd import Variable
 
 from densenet import DenseNet3
+from densenet import DenseNet3_partialsharing1
 from vgg import vgg16_bn as cifar10_vgg16_bn
 from vgg import vgg16 as cifar10_vgg16
 from wideresnet import WideResNet
@@ -603,31 +604,45 @@ def resnet110():
 def resnet1202():
     return ResNet(BasicBlock, [200, 200, 200])
 
-def densenet(num_classes=10):
-    return DenseNet3(100, num_classes)
+def densenet(num_classes=10, size=100):
+    return DenseNet3(size, num_classes)
 
-def densenet_bce(num_classes=10):
-    return DenseNet3(100, num_classes)
+def densenet_bce(num_classes=10, size=100):
+    return DenseNet3(size, num_classes)
 
+def densenet_bce_neg(num_classes=10, size=100):
+    return DenseNet3(size, num_classes)
 
-def vgg16(num_classes=10):
+def densenet_partialsharing1_bce(num_classes=10, size=100):
+    return DenseNet3_partialsharing1(size, num_classes)
+
+def vgg16(num_classes=10, size=0):
     return cifar10_vgg16()#only num_classes=10 is implemented
 
-def vgg16_bn(num_classes=10):
+def vgg16_bn(num_classes=10, size=0):
     return cifar10_vgg16_bn()#only num_classes=10 is implemented
 
-def vgg16_bce(num_classes=10):
+def vgg16_bce(num_classes=10, size=0):
     return cifar10_vgg16()#only num_classes=10 is implemented
 
-def vgg16_bn_bce(num_classes=10):
+def vgg16_bn_bce(num_classes=10, size=0):
     return cifar10_vgg16_bn()#only num_classes=10 is implemented
 
 
-def wideresnet(num_classes=10):
-    return WideResNet(28,num_classes,10)#only num_classes=10 is implemente
+def wideresnet(num_classes=10, size=10):
+    return WideResNet(28,num_classes,size)#only num_classes=10 is implemente
 
-def wideresnet_bce(num_classes=10):
-    return WideResNet(28,num_classes,10)#only num_classes=10 is implemente
+def wideresnet_bce(num_classes=10, size=10):
+    return WideResNet(28,num_classes,size)#only num_classes=10 is implemente
+
+def wideresnet_bce_neg(num_classes=10, size=10):
+    return WideResNet(28,num_classes,size)#only num_classes=10 is implemente
+
+def wideresnet_bce_b(num_classes=1, size=10):
+    return WideResNet(28,num_classes,size)#only num_classes=10 is implemente
+
+def densenet_bce_b(num_classes=1, size=28):
+    return DenseNet3(size, num_classes)
 
 def test(net):
     import numpy as np

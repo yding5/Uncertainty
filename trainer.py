@@ -27,12 +27,18 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet32',
                     choices=model_names,
                     help='model architecture: ' + ' | '.join(model_names) +
                     ' (default: resnet32)')
+parser.add_argument ('--size_dense', default=100, type=int,
+                    help='depth of densenet')
+parser.add_argument ('--size_wide', default=10, type=int,
+                    help='widden facor of wideresnet')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--dataset', default='cifar10', type=str, help='training dataset')
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--nesterov', default=False, type=bool, help='use of nesterov momentum')
+parser.add_argument('--normalize_loss_weight', default=0, type=int, help='type of normalized weight of positive samples')
+parser.add_argument('--binarized_label', default=10, type=int, help='type of binarized_label 10 is equal to no binarized label')
 parser.add_argument('--optimizer', default='SGD', type=str, help='use of optimizer from SGD and ADAM')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -111,14 +117,21 @@ def main():
         print('set epochs as 45 automatically')
         args.batch_size = 128
         print('set batch size as 128 automatically')
-        args.lr = 0.001
-        print('set lr as 1e-3 automatically')
+        args.lr = 0.01
+        print('set lr as 1e-2 automatically')
     else:
         print("undefined epochs")
 
 
-
-    model = torch.nn.DataParallel(models.__dict__[args.arch](num_classes))
+    if args.arch.startswith('dense'):
+        size = args.size_dense
+    elif args.arch.startswith('wide'):
+        size = args.size_wide
+    elif args.arch.startswith('vgg'):
+        size = 0
+    else:
+        raise NotImplementedError
+    model = torch.nn.DataParallel(models.__dict__[args.arch](num_classes,size))
     model.cuda()
 
     # optionally resume from a checkpoint
@@ -164,7 +177,7 @@ def main():
 
         # train for one epoch
         print('current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
-        train(train_loader, model, criterionList, optimizer, epoch, args, num_classes)
+        train(train_loader, model, criterionList, optimizer, epoch, args, num_classes, args.binarized_label)
         lr_scheduler.step()
 
         # evaluate on validation set
@@ -189,7 +202,7 @@ def main():
     }, is_best, filename=os.path.join(args.save_dir, 'final.th'))
 
 
-def train(train_loader, model, criterionList, optimizer, epoch, args, num_classes):
+def train(train_loader, model, criterionList, optimizer, epoch, args, num_classes, binarized_label):
     """
         Run one train epoch
     """
@@ -206,7 +219,7 @@ def train(train_loader, model, criterionList, optimizer, epoch, args, num_classe
     end = time.time()
     for i, (input, target) in enumerate(train_loader):
     
-        lossList, accuracyList, _ = get_loss_and_accuracy(args.arch, model, input, target, num_classes)
+        lossList, accuracyList, _ = get_loss_and_accuracy(args.arch, model, input, target, num_classes, args.normalize_loss_weight, binarized_label)
 
         # measure data loading time
         data_time.update(time.time() - end)
@@ -250,7 +263,7 @@ def validate(val_loader, model, criterionList, args, best_prec1, num_classes):
 
 
     for i, (input, target) in enumerate(val_loader):
-        lossList, accuracyList, _ = get_loss_and_accuracy(args.arch, model, input, target, num_classes)
+        lossList, accuracyList, _ = get_loss_and_accuracy(args.arch, model, input, target, num_classes, args.normalize_loss_weight)
 
         loss = lossList[0]
         accuracy = accuracyList[0]

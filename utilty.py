@@ -54,9 +54,18 @@ def get_lr_scheduler(optimizer, args):
     
 
 
-def get_loss_and_accuracy(name, model, input, target, num_classes):
+def get_loss_and_accuracy(name, model, input, target, num_classes, normalize_loss_weight, binarized_label=10):
     lossList = []
     accuracyList = []
+
+    if binarized_label < 10:
+        for j, val in enumerate(target):
+            if val == binarized_label:
+                target[j]=1
+            else:
+                target[j]=0
+        
+
     if name in ['densenet','vgg16','vgg16_bn','wideresnet']:
         target = target.cuda(async=True)
         target_var = torch.autograd.Variable(target)
@@ -66,7 +75,7 @@ def get_loss_and_accuracy(name, model, input, target, num_classes):
         outputList = model(input_var)
         lossList.append( criterion(outputList[0], target_var) )
         accuracyList.append( accuracy(outputList[0].data, target) )
-    elif name in ['densenet_bce','vgg16_bce','vgg16_bn_bce','wideresnet_bce']:
+    elif name in ['densenet_bce','vgg16_bce','vgg16_bn_bce','wideresnet_bce','densenet_partialsharing1_bce']:
         target2 = torch.ones((target.shape[0], num_classes))
         for j, val in enumerate(target):
             target2[j][target[j]]=0
@@ -78,8 +87,37 @@ def get_loss_and_accuracy(name, model, input, target, num_classes):
 
         criterion = nn.BCEWithLogitsLoss(pos_weight=torch.FloatTensor([0.111 for i in range(num_classes)])).cuda()
         outputList = model(input_var)
-        lossList.append( criterion(outputList[0], target_var_2) )
+        if normalize_loss_weight == 2:
+            lossList.append( 0.5 * criterion(outputList[0], target_var_2) )
+        elif normalize_loss_weight == 3:
+            lossList.append( 9 * criterion(outputList[0], target_var_2) )
+        elif normalize_loss_weight == 4:
+            lossList.append( 5 * criterion(outputList[0], target_var_2) )
+        else:
+            lossList.append( criterion(outputList[0], target_var_2) )
         accuracyList.append( accuracy_bottom(outputList[0].data, target) )
+
+    elif name in ['densenet_bce_neg','vgg16_bce_neg','vgg16_bn_bce_neg','wideresnet_bce_neg','densenet_partialsharing1_bce_neg']:
+        target2 = torch.zeros((target.shape[0], num_classes))
+        for j, val in enumerate(target):
+            target2[j][target[j]]=1
+
+        target = target.cuda(async=True)
+        target2 = target2.cuda(async=True)
+        target_var_2 = torch.autograd.Variable(target2)
+        #target_var = torch.autograd.Variable(target)
+        input_var = torch.autograd.Variable(input).cuda()
+        criterion = nn.BCEWithLogitsLoss(pos_weight=torch.FloatTensor([9 for i in range(num_classes)])).cuda()
+        outputList = model(input_var)
+        if normalize_loss_weight == 1:
+            lossList.append( 0.111 * criterion(outputList[0], target_var_2) )
+        elif normalize_loss_weight == 2:
+            lossList.append( 0.111 * 0.5 * criterion(outputList[0], target_var_2) )
+        elif normalize_loss_weight == 3:
+            lossList.append( 5/9 * criterion(outputList[0], target_var_2) )
+        else:
+            lossList.append( criterion(outputList[0], target_var_2) )
+        accuracyList.append( accuracy(outputList[0].data, target) )
 
 
 

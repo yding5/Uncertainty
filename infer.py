@@ -26,11 +26,18 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet32',
                     choices=model_names,
                     help='model architecture: ' + ' | '.join(model_names) +
                     ' (default: resnet32)')
+parser.add_argument ('--size_dense', default=100, type=int,
+                    help='depth of densenet')
+parser.add_argument ('--size_wide', default=10, type=int,
+                    help='widden facor of wideresnet')
+
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--train_dataset', default='cifar10', type=str, help='training dataset')
 parser.add_argument('--infer_dataset', default='cifar10', type=str, help='training dataset')
 parser.add_argument('--filename', default='name_not_specified', type=str, help='use of nesterov momentum')
+
+parser.add_argument('--normalize_loss_weight', default=False, type=bool, help='whether to normalize weight of positive samples')
 parser.add_argument('--epochs', default=200, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
@@ -90,7 +97,19 @@ def main():
     else:
         print("undefined num_classes")
 
-    model = torch.nn.DataParallel(models.__dict__[args.arch](num_classes))
+
+    if args.arch.startswith('dense'):
+        size = args.size_dense
+    elif args.arch.startswith('wide'):
+        size = args.size_wide
+    elif args.arch.startswith('vgg'):
+        size = 0
+    else:
+        raise NotImplementedError
+
+
+
+    model = torch.nn.DataParallel(models.__dict__[args.arch](num_classes,size))
     model.cuda()
 
     # optionally resume from a checkpoint
@@ -141,7 +160,7 @@ def validate_and_save(val_loader, model, criterionList, args, num_classes):
 
 
 
-        lossList, accuracyList, outputList = get_loss_and_accuracy(args.arch, model, input, target, num_classes)
+        lossList, accuracyList, outputList = get_loss_and_accuracy(args.arch, model, input, target, num_classes, args.normalize_loss_weight)
 
         loss = lossList[0]
         accuracy = accuracyList[0]
