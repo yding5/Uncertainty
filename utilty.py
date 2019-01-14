@@ -14,6 +14,51 @@ import torchvision.datasets as datasets
 import models
 import numpy as np
 
+
+def accuracy_binary(output, target):
+    """Computes the precision@k for the specified values of k"""
+    batch_size = target.size(0)
+    pred = nn.Sigmoid(output)
+    pred = torch.round(pred)
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    res.append(correct.mul_(100.0 / batch_size))
+    return res
+
+def accuracy_bottom(output, target, topk=(1,)):
+    """Computes the precision@k for the specified values of k"""
+    maxk = max(topk)
+    batch_size = target.size(0)
+
+    _, pred = output.topk(maxk, 1, False, True)
+    pred = pred.t()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    for k in topk:
+        correct_k = correct[:k].view(-1).float().sum(0)
+        res.append(correct_k.mul_(100.0 / batch_size))
+    return res
+
+
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the precision@k for the specified values of k"""
+    maxk = max(topk)
+    batch_size = target.size(0)
+
+    _, pred = output.topk(maxk, 1, True, True)
+    pred = pred.t()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    for k in topk:
+        correct_k = correct[:k].view(-1).float().sum(0)
+        res.append(correct_k.mul_(100.0 / batch_size))
+    return res
+
+
 class customizedLR(torch.optim.lr_scheduler._LRScheduler):
     """Set the learning rate of each parameter group to the initial lr decayed
     by gamma once the number of epoch reaches one of the milestones. When
@@ -58,13 +103,24 @@ def get_loss_and_accuracy(name, model, input, target, num_classes, normalize_los
     lossList = []
     accuracyList = []
 
+    if name in ['densenet','vgg16','vgg16_bn','wideresnet']:
+       accuracy_func = accuracy 
+    elif name in ['densenet_bce','vgg16_bce','vgg16_bn_bce','wideresnet_bce','densenet_partialsharing1_bce']:
+       accuracy_func = accuracy_bottom 
+    elif name in ['densenet_bce_neg','vgg16_bce_neg','vgg16_bn_bce_neg','wideresnet_bce_neg','densenet_partialsharing1_bce_neg']:
+       accuracy_func = accuracy 
+    else:
+       raise NotImplementedError
+
     if binarized_label < 10:
         for j, val in enumerate(target):
             if val == binarized_label:
                 target[j]=1
             else:
                 target[j]=0
-        
+
+        accuracy_func = accuracy_binary 
+
 
     if name in ['densenet','vgg16','vgg16_bn','wideresnet']:
         target = target.cuda(async=True)
@@ -74,7 +130,7 @@ def get_loss_and_accuracy(name, model, input, target, num_classes, normalize_los
         criterion = nn.CrossEntropyLoss().cuda()
         outputList = model(input_var)
         lossList.append( criterion(outputList[0], target_var) )
-        accuracyList.append( accuracy(outputList[0].data, target) )
+        accuracyList.append( accuracy_func(outputList[0].data, target) )
     elif name in ['densenet_bce','vgg16_bce','vgg16_bn_bce','wideresnet_bce','densenet_partialsharing1_bce']:
         target2 = torch.ones((target.shape[0], num_classes))
         for j, val in enumerate(target):
@@ -95,7 +151,7 @@ def get_loss_and_accuracy(name, model, input, target, num_classes, normalize_los
             lossList.append( 5 * criterion(outputList[0], target_var_2) )
         else:
             lossList.append( criterion(outputList[0], target_var_2) )
-        accuracyList.append( accuracy_bottom(outputList[0].data, target) )
+        accuracyList.append( accuracy_func(outputList[0].data, target) )
 
     elif name in ['densenet_bce_neg','vgg16_bce_neg','vgg16_bn_bce_neg','wideresnet_bce_neg','densenet_partialsharing1_bce_neg']:
         target2 = torch.zeros((target.shape[0], num_classes))
@@ -117,7 +173,7 @@ def get_loss_and_accuracy(name, model, input, target, num_classes, normalize_los
             lossList.append( 5/9 * criterion(outputList[0], target_var_2) )
         else:
             lossList.append( criterion(outputList[0], target_var_2) )
-        accuracyList.append( accuracy(outputList[0].data, target) )
+        accuracyList.append( accuracy_func(outputList[0].data, target) )
 
 
 
@@ -142,37 +198,4 @@ def get_loss_and_accuracy(name, model, input, target, num_classes, normalize_los
 
 
 
-
-
-def accuracy_bottom(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
-
-    _, pred = output.topk(maxk, 1, False, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
-
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
-
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-    res = []
-    for k in topk:
-        correct_k = correct[:k].view(-1).float().sum(0)
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
 

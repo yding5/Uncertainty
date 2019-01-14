@@ -107,7 +107,7 @@ def main():
     else:
         raise NotImplementedError
 
-
+    print(num_classes)
 
     model = torch.nn.DataParallel(models.__dict__[args.arch](num_classes,size))
     model.cuda()
