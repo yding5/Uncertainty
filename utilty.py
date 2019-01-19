@@ -14,6 +14,7 @@ import torchvision.datasets as datasets
 import models
 import numpy as np
 
+import math
 
 def accuracy_binary(output, target):
     """Computes the precision@k for the specified values of k"""
@@ -90,6 +91,8 @@ class customizedLR(torch.optim.lr_scheduler._LRScheduler):
 def get_lr_scheduler(optimizer, args):
     if args.arch.startswith('vgg'):
         lr_scheduler = customizedLR(optimizer,last_epoch=args.start_epoch - 1)
+    elif args.lr_schedule == 'wide':
+        lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,milestones=[60,120,160], gamma=0.2, last_epoch=args.start_epoch - 1)
     else:
         lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
                                                         milestones=[int(args.epochs/2), int(args.epochs/4*3)], last_epoch=args.start_epoch - 1) 
@@ -99,11 +102,11 @@ def get_lr_scheduler(optimizer, args):
     
 
 
-def get_loss_and_accuracy(name, model, input, target, num_classes, normalize_loss_weight, binarized_label=10):
+def get_loss_and_accuracy(name, model, input, target, num_classes, normalize_loss_weight, binarized_label=10, softmax_threshold = False, softmax_threshold_value = 0.95):
     lossList = []
     accuracyList = []
 
-    if name in ['densenet','vgg16','vgg16_bn','wideresnet']:
+    if name in ['densenet','vgg16','vgg16_bn','wideresnet','densenet_e']:
        accuracy_func = accuracy 
     elif name in ['densenet_bce','vgg16_bce','vgg16_bn_bce','wideresnet_bce','densenet_partialsharing1_bce']:
        accuracy_func = accuracy_bottom 
@@ -122,14 +125,24 @@ def get_loss_and_accuracy(name, model, input, target, num_classes, normalize_los
         accuracy_func = accuracy_binary 
 
 
-    if name in ['densenet','vgg16','vgg16_bn','wideresnet']:
+    if name in ['densenet','vgg16','vgg16_bn','wideresnet','densenet_e']:
         target = target.cuda(async=True)
         target_var = torch.autograd.Variable(target)
         input_var = torch.autograd.Variable(input).cuda()
 
-        criterion = nn.CrossEntropyLoss().cuda()
         outputList = model(input_var)
-        lossList.append( criterion(outputList[0], target_var) )
+        if softmax_threshold:
+            criterion = nn.CrossEntropyLoss(reduce=False).cuda()
+            temp = criterion(outputList[0], target)
+            #print(temp)
+            loss = torch.clamp( temp, min = -1*math.log(softmax_threshold_value)) 
+            #print(loss)
+            loss = loss.sum()/input.size()[0]
+            #print(loss)
+            lossList.append(loss)
+        else:
+            criterion = nn.CrossEntropyLoss().cuda()
+            lossList.append( criterion(outputList[0], target_var) )
         accuracyList.append( accuracy_func(outputList[0].data, target) )
     elif name in ['densenet_bce','vgg16_bce','vgg16_bn_bce','wideresnet_bce','densenet_partialsharing1_bce']:
         target2 = torch.ones((target.shape[0], num_classes))
@@ -179,7 +192,7 @@ def get_loss_and_accuracy(name, model, input, target, num_classes, normalize_los
 
     else:
         print("undefined loss and accuracy for {}!".format(name))
-        return -1
+        raise NotImplementedError
 
     return lossList, accuracyList, outputList
 

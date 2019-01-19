@@ -31,6 +31,8 @@ parser.add_argument ('--size_dense', default=100, type=int,
                     help='depth of densenet')
 parser.add_argument ('--size_wide', default=10, type=int,
                     help='widden facor of wideresnet')
+parser.add_argument('--softmax_threshold_value', default=0.95, type=float, help='threshold value for the softmax')
+parser.add_argument('--softmax_threshold', default=False, type=bool, help='use of softmax threshold')
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--dataset', default='cifar10', type=str, help='training dataset')
@@ -46,6 +48,7 @@ parser.add_argument('-b', '--batch-size', default=128, type=int,
                     metavar='N', help='mini-batch size (default: 128)')
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     metavar='LR', help='initial learning rate')
+parser.add_argument('--lr_schedule', default='default', type=str, help='learning rate schedule')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
@@ -98,8 +101,8 @@ def main():
     if args.arch.startswith('densenet'):
         args.epochs = 300
         print('set epochs as 300 automatically')
-        args.batch_size = 64
-        print('set batch size as 64 automatically')
+        #args.batch_size = 64
+        #print('set batch size as 64 automatically')
         args.nesterov = True
         print('set nesterov as True automatically')
     elif args.arch.startswith('resnet'):
@@ -150,7 +153,7 @@ def main():
     cudnn.benchmark = True
 
     #Get data
-    train_loader, val_loader = get_data_loader(args.dataset)
+    train_loader, val_loader = get_data_loader(args.dataset, args.batch_size)
     # define loss function (criterion) and optimizer
     criterionList = get_criterion_list(args.arch)
 
@@ -177,7 +180,7 @@ def main():
 
         # train for one epoch
         print('current lr {:.5e}'.format(optimizer.param_groups[0]['lr']))
-        train(train_loader, model, criterionList, optimizer, epoch, args, num_classes, args.binarized_label)
+        train(train_loader, model, criterionList, optimizer, epoch, args, num_classes, args.binarized_label, args.softmax_threshold, args.softmax_threshold_value)
         lr_scheduler.step()
 
         # evaluate on validation set
@@ -202,7 +205,7 @@ def main():
     }, is_best, filename=os.path.join(args.save_dir, 'final.th'))
 
 
-def train(train_loader, model, criterionList, optimizer, epoch, args, num_classes, binarized_label):
+def train(train_loader, model, criterionList, optimizer, epoch, args, num_classes, binarized_label, softmax_threshold, softmax_threshold_value):
     """
         Run one train epoch
     """
@@ -219,7 +222,7 @@ def train(train_loader, model, criterionList, optimizer, epoch, args, num_classe
     end = time.time()
     for i, (input, target) in enumerate(train_loader):
     
-        lossList, accuracyList, _ = get_loss_and_accuracy(args.arch, model, input, target, num_classes, args.normalize_loss_weight, binarized_label)
+        lossList, accuracyList, _ = get_loss_and_accuracy(args.arch, model, input, target, num_classes, args.normalize_loss_weight, binarized_label, softmax_threshold, softmax_threshold_value)
 
         # measure data loading time
         data_time.update(time.time() - end)
