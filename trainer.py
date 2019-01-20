@@ -29,7 +29,7 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet32',
                     ' (default: resnet32)')
 parser.add_argument ('--size_dense', default=100, type=int,
                     help='depth of densenet')
-parser.add_argument ('--size_wide', default=10, type=int,
+parser.add_argument ('--size_wide', default=10, type=float,
                     help='widden facor of wideresnet')
 parser.add_argument('--softmax_threshold_value', default=0.95, type=float, help='threshold value for the softmax')
 parser.add_argument('--softmax_threshold', default=False, type=bool, help='use of softmax threshold')
@@ -135,6 +135,9 @@ def main():
     else:
         raise NotImplementedError
     model = torch.nn.DataParallel(models.__dict__[args.arch](num_classes,size))
+
+    print('number of parameters: {}'.format(sum(p.numel() for p in model.parameters() if p.requires_grad)))
+
     model.cuda()
 
     # optionally resume from a checkpoint
